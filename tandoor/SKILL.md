@@ -1,7 +1,6 @@
 ---
 name: tandoor
 description: Access a local Tandoor Recipes instance using a configured base URL and API key.
-compatibility: opencode
 ---
 
 ## What I do

@@ -1,7 +1,6 @@
 ---
 name: komodo
 description: Access a Komodo Core instance through its JSON API using API keys, API secrets, or JWT auth. Use this whenever the user wants to inspect Komodo resources, manage builds, deployments, stacks, repos, servers, syncs, users, or execute operational actions like build, deploy, restart, pull, prune, or fetch logs from Komodo.
-compatibility: opencode
 ---
 
 ## What I do
