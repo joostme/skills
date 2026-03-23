@@ -19,8 +19,9 @@ description: Access a local Tandoor Recipes instance using a configured base URL
 - Do not proceed with API calls unless both `TANDOOR_BASE_URL` and `TANDOOR_API_KEY` are available.
 - Normalize the base URL by removing a trailing slash before appending API paths.
 - Send the API key in the `Authorization` header.
-- Use `Authorization: Bearer <TANDOOR_API_KEY>` unless the local instance is known to require a different Authorization header format.
+- Use `Authorization: Bearer <TANDOOR_API_KEY>` first. In practice this is the expected format for local API access unless the instance is known to require something else.
 - Send `Content-Type: application/json` for JSON writes.
+- For image uploads or remote-image imports, use `multipart/form-data` instead of JSON.
 
 ## Base conventions
 
@@ -39,6 +40,7 @@ description: Access a local Tandoor Recipes instance using a configured base URL
   - `GET /api/recipe/{id}/`: fetch recipe
   - `PATCH /api/recipe/{id}/`: update recipe fields
   - `DELETE /api/recipe/{id}/`: delete recipe
+  - `PUT /api/recipe/{id}/image/`: set or replace a recipe image using multipart form data with either `image` or `image_url`
 - Meal plans
   - `GET /api/meal-plan/`: list meal plans
   - `POST /api/meal-plan/`: create meal plan
@@ -98,8 +100,8 @@ description: Access a local Tandoor Recipes instance using a configured base URL
     {
       "instruction": "Cook garlic in oil and add tomatoes.",
       "ingredients": [
-        { "food": { "id": 10 }, "unit": { "id": 3 }, "amount": 250 },
-        { "food": { "id": 22 }, "unit": { "id": 5 }, "amount": 2 }
+        { "food": { "id": 10, "name": "Tomato" }, "unit": { "id": 3, "name": "g" }, "amount": 250 },
+        { "food": { "id": 22, "name": "Garlic" }, "unit": { "id": 5, "name": "clove" }, "amount": 2 }
       ]
     }
   ],
@@ -114,7 +116,55 @@ description: Access a local Tandoor Recipes instance using a configured base URL
   - Use `keywords` as nested objects when tagging recipes
   - Each step should include `instruction`
   - Ingredient entries are nested under each step and typically include food, unit, and amount
+  - When referencing existing foods and units inside recipe ingredients, include both the `id` and the `name` in the nested `food` and `unit` objects. Some Tandoor instances reject payloads that provide only the `id`.
+  - `original_text` is useful when transcribing recipes from free-form ingredient text and helps preserve the source wording.
   - Optional top-level recipe fields include `description`, `servings`, `servings_text`, `working_time`, `waiting_time`, `source_url`, `internal`, `private`, and `show_ingredient_overview`
+
+- Practical recipe transcription example with existing foods and units
+
+```json
+{
+  "name": "Pizza Rolls",
+  "working_time": 15,
+  "waiting_time": 30,
+  "show_ingredient_overview": true,
+  "steps": [
+    {
+      "instruction": "Grate the cheese, dice the sausage, and mix with cream.",
+      "ingredients": [
+        {
+          "food": { "id": 174, "name": "Gouda" },
+          "unit": { "id": 44, "name": "package" },
+          "amount": 1,
+          "original_text": "1 package Gouda"
+        },
+        {
+          "food": { "id": 50, "name": "Cream" },
+          "unit": { "id": 13, "name": "cup" },
+          "amount": 1,
+          "original_text": "1 cup cream"
+        }
+      ]
+    }
+  ]
+}
+```
+
+- Set a recipe image with `PUT /api/recipe/{id}/image/`
+
+Use `multipart/form-data` and send either a local file upload in `image` or a remote URL in `image_url`.
+
+Example form fields:
+
+```text
+image_url=https://example.com/pizza-rolls.jpg
+```
+
+or
+
+```text
+image=@/absolute/path/to/pizza-rolls.jpg
+```
 
 - Create meal plan with `POST /api/meal-plan/`
 
@@ -202,6 +252,7 @@ description: Access a local Tandoor Recipes instance using a configured base URL
 
 - If a user asks for meal planning, first resolve meal type IDs from `GET /api/meal-type/` before creating meal plans.
 - If a user asks for recipe creation with tags, ingredient names, or units that may not exist, look up existing keywords, foods, and units first.
+- If a recipe create or update payload is rejected and the expected field shape is unclear, inspect the endpoint with `OPTIONS` first, especially `OPTIONS /api/recipe/` and `OPTIONS /api/recipe/{id}/image/`.
 - When creating shopping entries, prefer linking to existing shopping lists instead of inventing new list IDs.
 - For updates, fetch the current object first when ID-specific fields or nested relationships are unclear.
 - Be conservative with deletes and confirm the exact target object when ambiguity exists.
